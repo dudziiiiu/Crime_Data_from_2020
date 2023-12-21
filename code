@@ -1,0 +1,129 @@
+# Установка и загрузка библиотек
+install.packages("ggplot2")
+library(ggplot2)
+
+# Чтение датасета из CSV-файла
+data <- read.csv("D:/Wine_dataset/Crime_Data_from_2020_to_Present.csv")
+
+# График 1: Распределение преступлений по районам
+ggplot(data, aes(x = AREA.NAME)) +
+  geom_bar() +
+  labs(title = "Distribution of Crimes by Area", x = "Area Name", y = "Number of Crimes")
+
+# График 2: Распределение возрастов пострадавших
+ggplot(data, aes(x = cut(Vict.Age, breaks = seq(5, max(data$Vict.Age), by = 5)))) +
+  geom_bar() +
+  labs(title = "Distribution of Victim Ages", x = "Victim Age", y = "Number of Victims")
+
+
+# График 3: Распределение по времени суток
+ggplot(data, aes(x = cut(TIME.OCC, breaks = seq(0, 2400, by = 100)))) +
+  geom_bar() +
+  labs(title = "Distribution of Crimes by Time of Day", x = "Time of Day", y = "Number of Crimes") +
+  scale_x_discrete(labels = sprintf("%04d", seq(0, 2400, by = 100))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# График 4: Распределение по полу пострадавших
+ggplot(data, aes(x = Vict.Sex, fill = Vict.Sex)) +
+  geom_bar() +
+  labs(title = "Distribution of Victim Sex", x = "Victim Sex", y = "Number of Victims") +
+  scale_y_continuous(labels = scales::comma_format())
+
+
+# График 5: Распределение по национальности пострадавших
+ggplot(data, aes(x = Vict.Descent, fill = Vict.Descent)) +
+  geom_bar() +
+  labs(title = "Distribution of Victim Descent", x = "Victim Descent", y = "Number of Victims") +
+  scale_y_continuous(labels = scales::comma_format())
+
+
+# Отфильтруем только типы преступлений с числом преступлений более 20000
+filtered_data_crime_type <- data[data$Crm.Cd.Desc %in% names(table(data$Crm.Cd.Desc)[table(data$Crm.Cd.Desc) > 20000]), ]
+
+# График 6: Распределение по типам преступлений
+ggplot(filtered_data_crime_type, aes(x = Crm.Cd.Desc)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = rel(0.7))) +
+  labs(title = "Distribution of Crime Types (with at least 20,000 crimes)", x = "Crime Type", y = "Number of Crimes")
+
+
+# Отфильтруем только места преступлений с числом преступлений более 10000
+filtered_data <- data[data$Premis.Desc %in% names(table(data$Premis.Desc)[table(data$Premis.Desc) > 10000]), ]
+
+# График 7: Распределение по местам преступлений (столбчатая диаграмма)
+ggplot(filtered_data, aes(x = Premis.Desc)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = rel(0.7))) +
+  labs(title = "Distribution of Crime Locations (with at least 10,000 crimes)", x = "Location", y = "Number of Crimes")
+
+
+
+# График 8: Распределение преступлений по дням недели
+data$Date.Rptd <- as.Date(data$Date.Rptd, format="%m/%d/%Y")
+data$Weekday <- weekdays(data$Date.Rptd)
+
+ggplot(data, aes(x = Weekday)) +
+  geom_bar() +
+  labs(title = "Distribution of Crimes by Day of Week", x = "Day of Week", y = "Number of Crimes") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(labels = scales::comma)  # Эта строка форматирует числа с запятой
+
+
+# График 9: Распределение по статусам преступлений
+ggplot(data, aes(x = Status.Desc)) +
+  geom_bar() +
+  labs(title = "Distribution of Crime Status", x = "Crime Status", y = "Number of Crimes") +
+  scale_y_continuous(labels = scales::comma)
+
+# График 10: Плотность распределения возраста пострадавших
+ggplot(data, aes(x = Vict.Age)) +
+  geom_density(fill = "green", color = "black") +
+  labs(title = "Density Distribution of Victim Ages", x = "Victim Age", y = "Density")
+
+# График 11: Сообщение о количестве уникальных районов
+unique_areas <- unique(data$AREA.NAME)
+cat("Number of Unique Areas:", length(unique_areas), "\n")
+
+# График 12: Сообщение о количестве уникальных типов преступлений
+unique_crime_types <- unique(data$Crm.Cd.Desc)
+cat("Number of Unique Crime Types:", length(unique_crime_types), "\n")
+
+# Установка и загрузка библиотеки для линейной регрессии
+install.packages("tidyverse")
+library(tidyverse)
+
+# Замените "Vict.Age" и "TIME.OCC" на нужные вам переменные
+model_data <- data %>% select(Vict.Age, TIME.OCC) 
+
+# Удаление строк с отсутствующими значениями
+model_data <- na.omit(model_data)
+
+# Разделение данных на обучающий и тестовый наборы
+set.seed(123)  # для воспроизводимости
+train_indices <- sample(seq_len(nrow(model_data)), size = 0.7 * nrow(model_data))
+train_data <- model_data[train_indices, ]
+test_data <- model_data[-train_indices, ]
+
+# Построение модели линейной регрессии
+linear_model <- lm(Vict.Age ~ TIME.OCC, data = train_data)
+
+# Вывод коэффициентов модели
+summary(linear_model)
+
+# Предсказание на тестовом наборе данных
+predictions <- predict(linear_model, newdata = test_data)
+
+# Оценка точности модели (например, среднеквадратичная ошибка)
+mse <- mean((predictions - test_data$Vict.Age)^2)
+cat("Mean Squared Error on Test Data:", mse, "\n")
+
+# Создание dataframe для фактических и предсказанных значений
+plot_data <- data.frame(Actual = test_data$Vict.Age, Predicted = predictions)
+
+# График фактических и предсказанных значений
+ggplot(plot_data, aes(x = 1:nrow(plot_data))) +
+  geom_line(aes(y = Actual, color = "Actual"), linewidth = 1.2) +
+  geom_point(aes(y = Predicted, color = "Predicted"), size = 3) +
+  labs(title = "Actual vs Predicted Values", x = "Observation", y = "Age") +
+  scale_color_manual(values = c("Actual" = "blue", "Predicted" = "red")) +
+  theme_minimal()
